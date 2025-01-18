@@ -7,50 +7,36 @@ import { asyncHandler } from "../utils/asynHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+  const {limit} = req.query;
 
-  if (!isValidObjectId(userId)) {
-    throw new ApiErrorError(400, "Invalid userId");
-  }
+  // console.log(userId);
 
-  if (!(query, sortBy, sortType)) {
-    throw new ApiError(401, "all fields are required");
-  }
+  // if (!isValidObjectId(userId)) {
+  //   throw new ApiError(400, "Invalid userId");
+  // }
 
-  const userExist = await User.findById(userId);
+  // if (!(query, sortBy, sortType)) {
+  //   throw new ApiError(401, "all fields are required");
+  // }
+
+  const userExist = await User.findById(req.user._id);
   if (!userExist) {
     throw new ApiError(404, "user not found");
   }
 
   const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
+    limit: parseInt(limit)
   };
-
-  let sortOptions = {};
-
-  if (sortBy) {
-    sortOptions[sortBy] = sortType = "desc" ? -1 : 1;
-  }
 
   const videoAggregationPipeline = Video.aggregate([
     {
       $match: {
         $and: [
           {
-            owner: new mongoose.Types.ObjectId(userId),
-          },
-          {
-            title: {
-              $regex: query,
-              $options: "i",
-            },
+            owner: new mongoose.Types.ObjectId(req.user._id),
           },
         ],
       },
-    },
-    {
-      $sort: sortOptions,
     },
   ]);
 
@@ -115,10 +101,41 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
+   console.log(videoId);
+
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "invalid videoId")
+    }
+
+   const video = await Video.findById(videoId);
+
+   if(!video){
+      throw new ApiError(404, "video not found");
+   }
+
+    return res.status(200).json(new ApiResponse(200, video , "video got successfully"))
+
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
+  const {title, description, thumbnails} = req.body;
+
+  const thumbnailsPath =  req.body.thumbnails.path;
+
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set : title, description,
+    },
+
+     {
+       new : true
+     }
+  )
+
+   return res.status(200).json(new ApiResponse(200, updatedVideo, "video updated successfuly"))
+    
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
